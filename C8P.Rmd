@@ -1,0 +1,102 @@
+---
+title: "MLProject"
+author: "Vaibhav Chugh"
+date: "8/13/2021"
+output: html_document
+---
+
+``` {r setup, include=FALSE,cache = TRUE, echo= FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+One thing that people regularly do is quantify how  much of a particular activity they do, but they rarely quantify how well they do it. Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. 
+
+## Goal
+
+In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+
+## Fetching Data 
+
+``` {r 1, cache = TRUE, echo= TRUE}
+library(caret)
+library(randomForest)
+library(e1071)
+
+
+if (!file.exists("train_data.csv")) {
+    download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="train_data.csv")
+}
+if (!file.exists("test_data.csv")) {
+    download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="test_data.csv")
+}
+
+train_init <-  read.csv("train_data.csv")
+test_init <-  read.csv("test_data.csv")
+dim(train_init)
+```
+
+## PreProcessing 
+
+``` {r 2, cache = TRUE, echo= TRUE}
+
+#Removing NA Values
+train_init <- train_init[,colSums(is.na(train_init)) == 0]
+test_init <- test_init[,colSums(is.na(test_init)) == 0]
+
+#Partitioning
+trainOb <- createDataPartition(train_init$classe, p = 0.8, list = FALSE)
+Training <- train_init[trainOb, ]
+Test <- train_init[-trainOb, ]
+
+#Removing features with near zero variance
+nzvcol <- nearZeroVar(Training)
+Training <- Training[, -nzvcol]
+
+#Removing non-numeric columns
+categories <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+    "cvtd_timestamp", "new_window", "num_window")
+Training <- Training[, !names(Training) %in% categories]
+
+Training$classe = factor(Training$classe)
+Test$classe =  factor(Test$classe)
+
+
+
+```
+
+## Training 
+
+Using random forest algorithm since the feature selection is automatic from all the columns in the dataframe. 
+
+``` {r 3, cache = TRUE, echo= TRUE }
+
+rf <- randomForest(classe ~ ., data = Training, importance = TRUE, ntrees = 10)
+
+
+```
+
+## Performance of our model
+
+### In-sample error (Training set)
+
+``` {r 4, cache = TRUE, echo= TRUE}
+train_perf <- predict(rf, Training)
+print(confusionMatrix(train_perf, Training$classe))
+```
+
+### Out-sample error (Test set)
+
+``` {r 5, cache = TRUE, echo= TRUE}
+test_perf <- predict(rf, Test)
+print(confusionMatrix(test_perf, Test$classe))
+```
+Accuracy on the test set is 99.7%
+
+## Predicting the test cases
+
+``` {r 6, cache = TRUE, echo= TRUE}
+testC_perf <- predict(rf, test_init)
+testC_perf
+```
